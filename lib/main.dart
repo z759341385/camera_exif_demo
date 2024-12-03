@@ -71,9 +71,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
     _initializeControllerFuture = controller!.initialize().then((value) async {
       controller!.setFlashMode(FlashMode.off);
+      controller!.setExposureOffset(0);
+      controller!.setExposureMode(ExposureMode.locked);
+      controller!.setExposurePoint(null);
       controller!.startImageStream((image) {});
       setState(() {});
-
     });
   }
 
@@ -92,42 +94,42 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
       ),
-      body:  Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            SizedBox(
-              width: double.maxFinite,
-              height: 300,
-              child: Row(
-                children: [
-                  Container(
-                    width: 300,
-                    height: 300,
-                    child: controller == null
-                        ? Container()
-                        : CameraPreview(
-                            controller!,
-                          ),
-                  ),
-                  Column(
-                    children: [
-                      TextButton(onPressed: () => takePhoto(), child: Text('拍照')),
-                      TextButton(onPressed: () => getExif(), child: Text('获取exif')),
-                    ],
-                  ),
-                ],
-              ),
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          SizedBox(
+            width: double.maxFinite,
+            height: 300,
+            child: Row(
+              children: [
+                Container(
+                  width: 300,
+                  height: 300,
+                  child: controller == null
+                      ? Container()
+                      : CameraPreview(
+                          controller!,
+                        ),
+                ),
+                Column(
+                  children: [
+                    TextButton(onPressed: () => takePhoto(), child: Text('拍照')),
+                    TextButton(onPressed: () => getExif(), child: Text('获取exif')),
+                  ],
+                ),
+              ],
             ),
-            Expanded(
-              child: ListView.builder(
-                itemBuilder: (c, i) {
-                  return Text(exifDatas[i]);
-                },
-                itemCount: exifDatas.length,
-              ),
-            )
-          ],
-        ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemBuilder: (c, i) {
+                return Text(exifDatas[i]);
+              },
+              itemCount: exifDatas.length,
+            ),
+          )
+        ],
+      ),
     );
   }
 
