@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:camera/camera.dart';
+import 'package:camerawesome/camerawesome_plugin.dart';
+import 'package:camerawesome/pigeon.dart';
 import 'package:exif/exif.dart';
 import 'package:flutter/material.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
@@ -19,21 +21,6 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
@@ -52,38 +39,32 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  CameraController? controller;
   late Future<void> _initializeControllerFuture;
   Uint8List? data;
   List exifDatas = [];
+  final _imageStreamController = StreamController<AnalysisImage>();
 
-  Future<void> _initializeCamera() async {
-    var res = await Permission.camera.request();
-    if (!res.isGranted) return;
-    final cameras = await availableCameras();
-    controller = CameraController(
-      cameras.first,
-      ResolutionPreset.medium,
-      enableAudio: false,
-      imageFormatGroup: ImageFormatGroup.jpeg,
-    );
-    // controller?.setDescription(CameraDescription(name: name, lensDirection: lensDirection, sensorOrientation: sensorOrientation))
-
-    _initializeControllerFuture = controller!.initialize().then((value) async {
-      controller!.setFlashMode(FlashMode.off);
-      controller!.setExposureOffset(0);
-      controller!.setExposureMode(ExposureMode.locked);
-      controller!.setExposurePoint(null);
-      controller!.startImageStream((image) {});
-      setState(() {});
-    });
+  @override
+  void activate() {
+    // TODO: implement deactivate
+    super.activate();
   }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
-      _initializeCamera();
+      _imageStreamController.stream.listen((AnalysisImage event) async {
+        JpegImage jpegImage = await (event as Bgra8888Image).toJpeg();
+
+        exifDatas.clear();
+        final exifData = await readExifFromBytes(jpegImage.bytes as List<int>);
+        for (final entry in exifData.entries) {
+          debugPrint("${entry.key}: ${entry.value}");
+          exifDatas.add("${entry.key}: ${entry.value}");
+        }
+        setState(() {});
+      });
     });
   }
 
@@ -105,16 +86,24 @@ class _MyHomePageState extends State<MyHomePage> {
                 Container(
                   width: 300,
                   height: 300,
-                  child: controller == null
-                      ? Container()
-                      : CameraPreview(
-                          controller!,
-                        ),
+                  child: CameraAwesomeBuilder.awesome(
+                    previewPadding: const EdgeInsets.all(20),
+                    previewAlignment: Alignment.center, saveConfig: SaveConfig.photo(),
+
+                    onImageForAnalysis: (img) async => _imageStreamController.add(img),
+                    imageAnalysisConfig: AnalysisConfig(
+                      androidOptions: const AndroidAnalysisOptions.yuv420(
+                        width: 150,
+                      ),
+                      maxFramesPerSecond: 10,
+                    ),
+                    // Other parameters
+                  ),
                 ),
                 Column(
                   children: [
-                    TextButton(onPressed: () => takePhoto(), child: Text('拍照')),
-                    TextButton(onPressed: () => getExif(), child: Text('获取exif')),
+                    TextButton(onPressed: () {}, child: Text('拍照')),
+                    // TextButton(onPressed: () => getExif(), child: Text('获取exif')),
                   ],
                 ),
               ],
@@ -133,25 +122,26 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  takePhoto() async {
-    var images = await controller!.takePicture();
-    data = await images.readAsBytes();
-    final exifData = await readExifFromBytes(data as List<int>);
-    for (final entry in exifData.entries) {
-      debugPrint("${entry.key}: ${entry.value}");
-    }
-    await ImageGallerySaver.saveFile(images.path, isReturnPathOfIOS: true);
-  }
-
-  getExif() async {
-    var images = await controller!.takePicture();
-    data = await images.readAsBytes();
-    exifDatas.clear();
-    final exifData = await readExifFromBytes(data as List<int>);
-    for (final entry in exifData.entries) {
-      debugPrint("${entry.key}: ${entry.value}");
-      exifDatas.add("${entry.key}: ${entry.value}");
-    }
-    setState(() {});
-  }
+  //
+  // takePhoto() async {
+  //   var images = await controller!.takePicture();
+  //   data = await images.readAsBytes();
+  //   final exifData = await readExifFromBytes(data as List<int>);
+  //   for (final entry in exifData.entries) {
+  //     debugPrint("${entry.key}: ${entry.value}");
+  //   }
+  //   await ImageGallerySaver.saveFile(images.path, isReturnPathOfIOS: true);
+  // }
+  //
+  // getExif() async {
+  //   var images = await controller!.takePicture();
+  //   data = await images.readAsBytes();
+  //   exifDatas.clear();
+  //   final exifData = await readExifFromBytes(data as List<int>);
+  //   for (final entry in exifData.entries) {
+  //     debugPrint("${entry.key}: ${entry.value}");
+  //     exifDatas.add("${entry.key}: ${entry.value}");
+  //   }
+  //   setState(() {});
+  // }
 }
